@@ -78,7 +78,6 @@ input,select{
     font-weight:bold;
 }
 
-/* FIX UI */
 #filterType{
     color:black;
     background:white;
@@ -102,6 +101,14 @@ td select{
 <button onclick="clearData()">🗑️ CLEAR</button>
 <button onclick="takeScreenshot()">📸 IMAGE</button>
 <button onclick="window.print()">🖨️ PDF</button>
+
+<!-- 🔥 NEW BACKUP BUTTONS -->
+
+<button onclick="exportData()">⬇️ EXPORT</button> <input type="file" onchange="importData(event)">
+
+<!-- 🔥 CLOUD -->
+
+<button onclick="saveToCloud()">☁️ CLOUD SAVE</button> <button onclick="loadFromCloud()">📥 CLOUD LOAD</button>
 
 <select id="filterType" onchange="filterData()">
 <option value="all">ALL</option>
@@ -167,7 +174,15 @@ td select{
 
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 
+<!-- FIREBASE -->
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js"></script>
+
 <script>
+
+/* ================= ORIGINAL SYSTEM ================= */
 
 const payTypes=[
 "CASH","UBER","LYFT","ZELLE","CASHAPP","VENMO","SQUARE",
@@ -226,9 +241,8 @@ function calculateAll(){
     currentEarning.style.color=current>=0?"green":"red";
 }
 
-/* KEYBOARD FIX ONLY */
+/* ENTER + ARROW FIX */
 document.addEventListener("keydown",(e)=>{
-
     let cur=document.activeElement;
     if(!cur || !["INPUT","SELECT"].includes(cur.tagName)) return;
 
@@ -238,30 +252,27 @@ document.addEventListener("keydown",(e)=>{
 
     let next=null;
 
-    if(e.key==="Enter" || e.key==="ArrowDown"){
+    if(e.key==="Enter"||e.key==="ArrowDown"){
         e.preventDefault();
-        let nextRow=row.nextElementSibling;
-        if(!nextRow){ addRow(); nextRow=row.nextElementSibling; }
-        next=nextRow?.children[col]?.querySelector("input,select");
+        let nr=row.nextElementSibling;
+        if(!nr){addRow();nr=row.nextElementSibling;}
+        next=nr?.children[col]?.querySelector("input,select");
     }
-
     else if(e.key==="ArrowUp"){
         e.preventDefault();
-        let prev=row.previousElementSibling;
-        next=prev?.children[col]?.querySelector("input,select");
+        let pr=row.previousElementSibling;
+        next=pr?.children[col]?.querySelector("input,select");
     }
-
     else if(e.key==="ArrowRight"){
         e.preventDefault();
         next=row.children[col+1]?.querySelector("input,select");
     }
-
     else if(e.key==="ArrowLeft"){
         e.preventDefault();
         next=row.children[col-1]?.querySelector("input,select");
     }
 
-    if(next){ next.focus(); }
+    next?.focus();
 });
 
 /* AUTO SAVE */
@@ -270,11 +281,7 @@ document.addEventListener("input",()=>{
     saveData();
 });
 
-window.onload=()=>{
-    loadData();
-    calculateAll();
-};
-
+/* SAVE LOCAL */
 function saveData(){
     let data=[...document.querySelectorAll("input,select")].map(i=>i.value);
     localStorage.setItem("uberData",JSON.stringify(data));
@@ -287,6 +294,7 @@ function loadData(){
     });
 }
 
+/* CLEAR */
 function clearData(){
     if(confirm("Clear all data?")){
         localStorage.removeItem("uberData");
@@ -294,6 +302,7 @@ function clearData(){
     }
 }
 
+/* SCREENSHOT */
 function takeScreenshot(){
     html2canvas(document.querySelector("#captureArea"))
     .then(canvas=>{
@@ -304,9 +313,57 @@ function takeScreenshot(){
     });
 }
 
-function filterData(){
-    loadData();
+/* ================= BACKUP SYSTEM ================= */
+
+function exportData(){
+    let data = localStorage.getItem("uberData");
+    let blob = new Blob([data], {type:"application/json"});
+    let a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download="backup.json";
+    a.click();
 }
+
+function importData(event){
+    let file=event.target.files[0];
+    let reader=new FileReader();
+    reader.onload=e=>{
+        localStorage.setItem("uberData",e.target.result);
+        location.reload();
+    };
+    reader.readAsText(file);
+}
+
+/* ================= FIREBASE ================= */
+
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  databaseURL: "https://YOUR_PROJECT.firebaseio.com",
+  projectId: "YOUR_PROJECT"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+function saveToCloud(){
+    let data = localStorage.getItem("uberData");
+    db.ref("uberData").set({data});
+}
+
+function loadFromCloud(){
+    db.ref("uberData").once("value").then(snap=>{
+        let data=snap.val().data;
+        localStorage.setItem("uberData",data);
+        location.reload();
+    });
+}
+
+/* INIT */
+window.onload=()=>{
+    loadData();
+    calculateAll();
+};
 
 </script>
 
