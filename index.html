@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+<title>Uber Pro Max Statement</title>
+
+<style>
+body { 
+    font-family: Arial; 
+    padding:10px; 
+    margin:0; 
+    background:#f5f5f5;
+}
+
+table { table-layout: fixed; }
+
+th:nth-child(1), td:nth-child(1) { width: 120px; }
+th:nth-child(2), td:nth-child(2) { width: 120px; }
+th:nth-child(3), td:nth-child(3) { width: 120px; }
+th:nth-child(4), td:nth-child(4) { width: 120px; }
+th:nth-child(5), td:nth-child(5) { width: 120px; }
+
+.btn-group{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    margin-bottom:10px;
+}
+
+button,select{
+    flex:1 1 45%;
+    padding:10px;
+    font-size:14px;
+    border:none;
+    border-radius:6px;
+    background:#222;
+    color:#fff;
+}
+
+.table-wrap{
+    overflow-x:auto;
+    background:#fff;
+    border-radius:8px;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:12px;
+    min-width:520px;
+}
+
+th,td{
+    border:1px solid #ddd;
+    padding:6px;
+    text-align:center;
+}
+
+th{
+    background:#000;
+    color:#fff;
+    position:sticky;
+    top:0;
+}
+
+input,select{
+    width:95%;
+    padding:6px;
+    font-size:14px;
+    border:none;
+    outline:none;
+    text-align:center;
+    background:transparent;
+}
+
+.total{
+    background:#eaeaea;
+    font-weight:bold;
+}
+
+/* FIX UI */
+#filterType{
+    color:black;
+    background:white;
+}
+
+td select{
+    color:black;
+}
+</style>
+
+</head>
+
+<body>
+
+<h2 style="text-align:center;">UBER / LYFT PRO MAX</h2>
+
+<div class="btn-group">
+<button onclick="addRow()">➕ ADD</button>
+<button onclick="deleteRow()">❌ DELETE</button>
+<button onclick="saveData()">💾 SAVE</button>
+<button onclick="clearData()">🗑️ CLEAR</button>
+<button onclick="takeScreenshot()">📸 IMAGE</button>
+<button onclick="window.print()">🖨️ PDF</button>
+
+<select id="filterType" onchange="filterData()">
+<option value="all">ALL</option>
+<option value="weekly">WEEKLY</option>
+<option value="monthly">MONTHLY</option>
+<option value="yearly">YEARLY</option>
+</select>
+</div>
+
+<div class="table-wrap">
+<table id="captureArea">
+
+<tr>
+<th>DATE</th>
+<th>GAS</th>
+<th>OTHERS</th>
+<th>EARNING</th>
+<th>TYPE</th>
+</tr>
+
+<tbody id="mainRows"></tbody>
+
+<tr class="total"><td>TOTAL GAS</td><td><input id="gasTotal" readonly></td><td colspan="3"></td></tr>
+<tr class="total"><td>TOTAL OTHERS</td><td><input id="othersTotal" readonly></td><td colspan="3"></td></tr>
+<tr class="total"><td>TOTAL EARNING</td><td><input id="earningTotal" readonly></td><td colspan="3"></td></tr>
+
+<tr>
+<td>START MILES</td>
+<td><input id="startMiles"></td>
+<td>CLOSE MILES</td>
+<td><input id="closeMiles"></td>
+<td><input id="totalMiles" readonly></td>
+</tr>
+
+<tr class="total">
+<td colspan="2">MILE COST</td>
+<td colspan="3"><input id="mileCost" readonly></td>
+</tr>
+
+<tr>
+<td>TOLL START</td><td><input id="tollStart"></td>
+<td>TOLL CLOSE</td><td><input id="tollClose"></td>
+<td><input id="tollSpent" readonly></td>
+</tr>
+
+<tr class="total">
+<td colspan="2">TOTAL COST</td>
+<td colspan="3"><input id="totalCost" readonly></td>
+</tr>
+
+<tr class="total">
+<td colspan="2">CURRENT EARNING</td>
+<td colspan="3"><input id="currentEarning" readonly></td>
+</tr>
+
+<tr class="total">
+<td colspan="2">PROFIT</td>
+<td colspan="3"><input id="weeklyProfit" readonly></td>
+</tr>
+
+</table>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+<script>
+
+const payTypes=[
+"CASH","UBER","LYFT","ZELLE","CASHAPP","VENMO","SQUARE",
+"C-CASH","AMAZON","EMPOWER","DOORDASH","WALMART","ALL-MIX"
+];
+
+const tbody=document.getElementById("mainRows");
+
+function createRow(){
+    let tr=document.createElement("tr");
+    let options=payTypes.map(t=>`<option>${t}</option>`).join("");
+    tr.innerHTML=`
+        <td><input class="date" type="date"></td>
+        <td><input class="gas"></td>
+        <td><input class="others"></td>
+        <td><input class="earning"></td>
+        <td><select>${options}</select></td>
+    `;
+    return tr;
+}
+
+for(let i=0;i<2;i++) tbody.appendChild(createRow());
+
+function addRow(){ tbody.appendChild(createRow()); }
+
+function deleteRow(){
+    if(tbody.rows.length>1)
+        tbody.removeChild(tbody.lastElementChild);
+}
+
+function f(n){ return (n||0).toFixed(2); }
+
+function calculateAll(){
+
+    let gas=[...document.querySelectorAll(".gas")].reduce((t,i)=>t+(+i.value||0),0);
+    let others=[...document.querySelectorAll(".others")].reduce((t,i)=>t+(+i.value||0),0);
+    let earn=[...document.querySelectorAll(".earning")].reduce((t,i)=>t+(+i.value||0),0);
+
+    let miles=(+closeMiles.value||0)-(+startMiles.value||0);
+    let mileCostValue=miles*0.30;
+    let toll=Math.max(0,(+tollClose.value||0)-(+tollStart.value||0));
+
+    let totalCost=gas+others+mileCostValue+toll;
+    let current=earn-totalCost;
+
+    gasTotal.value=f(gas);
+    othersTotal.value=f(others);
+    earningTotal.value=f(earn);
+    totalMiles.value=f(miles);
+    mileCost.value=f(mileCostValue);
+    tollSpent.value=f(toll);
+    totalCost.value=f(totalCost);
+    currentEarning.value=f(current);
+    weeklyProfit.value=f(current);
+
+    currentEarning.style.color=current>=0?"green":"red";
+}
+
+/* KEYBOARD FIX ONLY */
+document.addEventListener("keydown",(e)=>{
+
+    let cur=document.activeElement;
+    if(!cur || !["INPUT","SELECT"].includes(cur.tagName)) return;
+
+    let cell=cur.closest("td");
+    let row=cur.closest("tr");
+    let col=[...row.children].indexOf(cell);
+
+    let next=null;
+
+    if(e.key==="Enter" || e.key==="ArrowDown"){
+        e.preventDefault();
+        let nextRow=row.nextElementSibling;
+        if(!nextRow){ addRow(); nextRow=row.nextElementSibling; }
+        next=nextRow?.children[col]?.querySelector("input,select");
+    }
+
+    else if(e.key==="ArrowUp"){
+        e.preventDefault();
+        let prev=row.previousElementSibling;
+        next=prev?.children[col]?.querySelector("input,select");
+    }
+
+    else if(e.key==="ArrowRight"){
+        e.preventDefault();
+        next=row.children[col+1]?.querySelector("input,select");
+    }
+
+    else if(e.key==="ArrowLeft"){
+        e.preventDefault();
+        next=row.children[col-1]?.querySelector("input,select");
+    }
+
+    if(next){ next.focus(); }
+});
+
+/* AUTO SAVE */
+document.addEventListener("input",()=>{
+    calculateAll();
+    saveData();
+});
+
+window.onload=()=>{
+    loadData();
+    calculateAll();
+};
+
+function saveData(){
+    let data=[...document.querySelectorAll("input,select")].map(i=>i.value);
+    localStorage.setItem("uberData",JSON.stringify(data));
+}
+
+function loadData(){
+    let data=JSON.parse(localStorage.getItem("uberData")||"[]");
+    document.querySelectorAll("input,select").forEach((i,idx)=>{
+        if(data[idx]) i.value=data[idx];
+    });
+}
+
+function clearData(){
+    if(confirm("Clear all data?")){
+        localStorage.removeItem("uberData");
+        location.reload();
+    }
+}
+
+function takeScreenshot(){
+    html2canvas(document.querySelector("#captureArea"))
+    .then(canvas=>{
+        let a=document.createElement("a");
+        a.download="statement.png";
+        a.href=canvas.toDataURL();
+        a.click();
+    });
+}
+
+function filterData(){
+    loadData();
+}
+
+</script>
+
+</body>
+</html>
